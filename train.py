@@ -24,9 +24,22 @@ vocab_size = enc.n_vocab
 print(f"Loaded GPT-2 BPE tokenizer (vocab_size = {vocab_size})")
 
 data = torch.tensor(enc.encode(text), dtype=torch.long)
+if len(data) < block_size + 2:
+    raise ValueError(
+        f"data/input.txt only has {len(data)} tokens, but training needs at least "
+        f"block_size + 2 = {block_size + 2}. "
+        "Add more dialogue/script text to data/input.txt before training."
+    )
+
 split_idx = int(0.9 * len(data))
 train_data = data[:split_idx]
 val_data = data[split_idx:]
+
+# Fall back to the full dataset for validation if the 10% split is too short to sample a batch
+if len(val_data) <= block_size + 1:
+    print(f"Warning: Dataset is small ({len(data)} tokens). Using full dataset for train/val.")
+    train_data = data
+    val_data = data
 
 
 def get_batch(split):

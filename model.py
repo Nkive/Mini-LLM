@@ -96,11 +96,31 @@ class MiniLLM(nn.Module):
         return logits, loss
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=0.8):
+    def generate(self, idx, max_new_tokens, temperature=0.8, top_k=50, top_p=0.9):
         for _ in range(max_new_tokens):
             idx_cond = idx[:, -self.block_size :]
             logits, _ = self(idx_cond)
             logits = logits[:, -1, :] / temperature
+
+            # Top-k filtering: keep only the top k highest-probability tokens
+            if top_k is not None and top_k > 0:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = float("-inf")
+
+            # Top-p (nucleus) filtering: keep smallest set of tokens with cumulative prob >= top_p
+            if top_p is not None and 0.0 < top_p < 1.0:
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+                cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[:, 1:] = sorted_indices_to_remove[:, :-1].clone()
+                sorted_indices_to_remove[:, 0] = False
+
+                indices_to_remove = sorted_indices_to_remove.scatter(
+                    1, sorted_indices, sorted_indices_to_remove
+                )
+                logits[indices_to_remove] = float("-inf")
+
             probs = F.softmax(logits, dim=-1)
             next_token = torch.multinomial(probs, num_samples=1)
             idx = torch.cat((idx, next_token), dim=1)

@@ -9,6 +9,8 @@ def main():
     parser.add_argument("--prompt", type=str, default="To be, or not", help="Starting text prompt")
     parser.add_argument("--tokens", type=int, default=120, help="Number of new subword tokens to generate")
     parser.add_argument("--temperature", type=float, default=0.8, help="Sampling temperature (higher = more random)")
+    parser.add_argument("--top-k", type=int, default=50, help="Keep top-k tokens (0 to disable)")
+    parser.add_argument("--top-p", type=float, default=0.9, help="Nucleus sampling cumulative probability threshold")
     parser.add_argument("--checkpoint", type=str, default="checkpoint.pt", help="Path to saved model checkpoint")
     args = parser.parse_args()
 
@@ -29,7 +31,13 @@ def main():
 
     encoded = enc.encode(args.prompt) or [enc.eot_token]
     context = torch.tensor([encoded], dtype=torch.long, device=device)
-    output_ids = model.generate(context, max_new_tokens=args.tokens, temperature=args.temperature)[0].tolist()
+    output_ids = model.generate(
+        context,
+        max_new_tokens=args.tokens,
+        temperature=args.temperature,
+        top_k=args.top_k if args.top_k > 0 else None,
+        top_p=args.top_p,
+    )[0].tolist()
 
     print("\n--- Generated Text ---")
     print(enc.decode(output_ids))

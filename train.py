@@ -1,9 +1,13 @@
+import tiktoken
 import torch
 from model import MiniLLM
 
 # Hyperparameters
 batch_size = 32
 block_size = 64
+n_embd = 128
+num_heads = 4
+n_layer = 4
 max_iters = 1500
 eval_interval = 300
 learning_rate = 3e-4
@@ -14,15 +18,12 @@ torch.manual_seed(42)
 with open("data/input.txt", "r", encoding="utf-8") as f:
     text = f.read()
 
-chars = sorted(list(set(text)))
-vocab_size = len(chars)
-stoi = {ch: i for i, ch in enumerate(chars)}
-itos = {i: ch for i, ch in enumerate(chars)}
+# GPT-2 BPE tokenizer
+enc = tiktoken.get_encoding("gpt2")
+vocab_size = enc.n_vocab
+print(f"Loaded GPT-2 BPE tokenizer (vocab_size = {vocab_size})")
 
-encode = lambda s: [stoi[c] for c in s]
-decode = lambda l: "".join([itos[i] for i in l])
-
-data = torch.tensor(encode(text), dtype=torch.long)
+data = torch.tensor(enc.encode(text), dtype=torch.long)
 split_idx = int(0.9 * len(data))
 train_data = data[:split_idx]
 val_data = data[split_idx:]
@@ -51,7 +52,13 @@ def estimate_loss(model, eval_iters=50):
     return out
 
 
-model = MiniLLM(vocab_size=vocab_size, block_size=block_size).to(device)
+model = MiniLLM(
+    vocab_size=vocab_size,
+    n_embd=n_embd,
+    num_heads=num_heads,
+    n_layer=n_layer,
+    block_size=block_size,
+).to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 for step in range(max_iters):
@@ -65,8 +72,18 @@ for step in range(max_iters):
     loss.backward()
     optimizer.step()
 
-torch.save(model.state_dict(), "mini_llm.pt")
+checkpoint = {
+    "model_state_dict": model.state_dict(),
+    "tokenizer": "gpt2",
+    "vocab_size": vocab_size,
+    "n_embd": n_embd,
+    "num_heads": num_heads,
+    "n_layer": n_layer,
+    "block_size": block_size,
+}
+torch.save(checkpoint, "checkpoint.pt")
+print("Saved checkpoint to checkpoint.pt")
 
-context = torch.zeros((1, 1), dtype=torch.long, device=device)
+context = torch.tensor([[enc.eot_token]], dtype=torch.long, device=device)
 print("\n--- Generated Sample ---")
-print(decode(model.generate(context, max_new_tokens=300, temperature=0.8)[0].tolist()))
+print(enc.decode(model.generate(context, max_new_tokens=120, temperature=0.8)[0].tolist()))

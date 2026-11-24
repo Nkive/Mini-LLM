@@ -74,12 +74,19 @@ for step in range(max_iters):
 
 checkpoint = {
     "model_state_dict": model.state_dict(),
+<<<<<<< HEAD
     "tokenizer": "gpt2",
     "vocab_size": vocab_size,
     "n_embd": n_embd,
     "num_heads": num_heads,
     "n_layer": n_layer,
     "block_size": block_size,
+=======
+    "vocab_size": vocab_size,
+    "block_size": block_size,
+    "stoi": stoi,
+    "itos": itos,
+>>>>>>> main
 }
 torch.save(checkpoint, "checkpoint.pt")
 print("Saved checkpoint to checkpoint.pt")

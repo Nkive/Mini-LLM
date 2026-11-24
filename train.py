@@ -65,7 +65,15 @@ for step in range(max_iters):
     loss.backward()
     optimizer.step()
 
-torch.save(model.state_dict(), "mini_llm.pt")
+checkpoint = {
+    "model_state_dict": model.state_dict(),
+    "vocab_size": vocab_size,
+    "block_size": block_size,
+    "stoi": stoi,
+    "itos": itos,
+}
+torch.save(checkpoint, "checkpoint.pt")
+print("Saved checkpoint to checkpoint.pt")
 
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 print("\n--- Generated Sample ---")
